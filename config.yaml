@@ -1,4 +1,4 @@
-device: cuda
+device: cpu
 
 dataset: metrla
 time_step: 3
