@@ -1,0 +1,25 @@
+device: cuda
+
+dataset: metrla
+time_step: 3
+batch_size: 64
+learning_rate: 1e-3
+weight_decay: 1e-6
+max_learning_rate: 1e-2
+epochs: 10000
+input_dim: 2
+hidden_dim: 32
+num_cond_blocks: 6
+num_noise_blocks: 8
+num_nodes: ???
+diff_steps: 200
+loss_type: l2
+beta_end: 0.1
+beta_schedule: quad
+num_samples: 32
+eta: 1.0
+ema_decay: 0.99
+ema_update_after_step: 0
+ema_update_every: 5
+criteria: mae
+patience: 30
