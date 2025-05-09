@@ -17,6 +17,7 @@ This repository contains the Pytorch implementation code for the paper "LightSTD
 - ema-pytorch 0.7.7
 - numpy 1.26.4
 - hydra-core 1.3.2
+- tqdm 4.67.1
 
 ##  Datasets
 We used two benchmark datasets; METR-LA and PEMS-BAY. You can refer to torch-geometric-temporal documentation for datasets [here](https://pytorch-geometric-temporal.readthedocs.io/en/latest/modules/dataset.html#module-torch_geometric_temporal.dataset.chickenpox).
