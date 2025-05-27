@@ -62,6 +62,8 @@ def main(cfg):
         input_dim=cfg.input_dim,
         num_nodes=cfg.num_nodes,
         periods=cfg.time_step,
+        num_cond_blocks=cfg.num_cond_blocks,
+        num_noise_blocks=cfg.num_noise_blocks,
         diff_steps=cfg.diff_steps,
         loss_type=cfg.loss_type,
         beta_end=cfg.beta_end,
