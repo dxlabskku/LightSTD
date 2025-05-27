@@ -50,9 +50,9 @@ class LightSTD(nn.Module):
             num_nodes: int,
             periods: int,
             edge_index: torch.Tensor,
-            dropout: float = 0.1,
             hidden_dim: int = 8,
-            num_blocks: int = 8,
+            num_cond_blocks: int = 6,
+            num_noise_blocks: int = 8,
             diff_steps: int = 200,
             loss_type: str = "l2",
             beta_end: float = 0.1,
@@ -60,7 +60,6 @@ class LightSTD(nn.Module):
             beta_schedule: str = "uniform",
             sample_steps: int = 40,
             eta: float = 0.0,
-            type: int = 0,
             **kwargs
             ) -> None:
         super(LightSTD, self).__init__()
