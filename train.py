@@ -40,15 +40,15 @@ def main(cfg):
     train_dataset, valid_dataset = temporal_signal_split(train_dataset, train_ratio=0.9)
 
     def batch_dataset(dataset, batch_size, shuffle=False):
-        x = np.array(dataset.features)
-        y = np.array(dataset.targets)
+        history = np.array(dataset.features)
+        future = np.array(dataset.targets)
 
-        if y.ndim > 3:
-            y = y[:, :, 0, :]
+        if future.ndim > 3:
+            future = future[:, :, 0, :]
 
-        x = torch.from_numpy(x)
-        y = torch.from_numpy(y)
-        dataset = TensorDataset(x, y)
+        history = torch.from_numpy(history)
+        future = torch.from_numpy(future)
+        dataset = TensorDataset(history, future)
         return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
     train_loader = batch_dataset(train_dataset, batch_size=cfg.batch_size, shuffle=True)
@@ -98,11 +98,11 @@ def main(cfg):
         cumm_epoch_valid_loss = 0.0
 
         net.train()
-        for prev, x in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{cfg.epochs}, Train"):
-            prev = prev.permute(0, 3, 1, 2).to(cfg.device)
-            x = x.permute(0, 2, 1).to(cfg.device)
+        for history, future in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{cfg.epochs}, Train"):
+            history = history.permute(0, 3, 1, 2).to(cfg.device)
+            future = future.permute(0, 2, 1).to(cfg.device)
 
-            loss = net(x=x, prev=prev)
+            loss = net(x=future, prev=history)
 
             optimizer.zero_grad()
             loss.backward()
@@ -118,28 +118,28 @@ def main(cfg):
         logging.info(f"Epoch {epoch + 1:04d} \t Train Loss {train_loss:.4f}")
 
         if epoch > cfg.ema_update_after_step and epoch % cfg.ema_update_every == cfg.ema_update_every - 1:
-            y_pred = []
-            y_true = []
+            future_pred = []
+            future_true = []
             ema.eval()
-            for prev, x in tqdm(valid_loader, desc=f"Epoch {epoch + 1}/{cfg.epochs}, Validation", colour="green"):
-                prev = prev.permute(0, 3, 1, 2).to(cfg.device)
-                x = x.permute(0, 2, 1).to(cfg.device)
+            for history, future in tqdm(valid_loader, desc=f"Epoch {epoch + 1}/{cfg.epochs}, Validation", colour="green"):
+                history = history.permute(0, 3, 1, 2).to(cfg.device)
+                future = future.permute(0, 2, 1).to(cfg.device)
             
                 with torch.no_grad():
-                    loss = ema.ema_model(x=x, prev=prev)
-                    pred = ema.ema_model.sample(prev=prev, num_samples=1)
+                    loss = ema.ema_model(x=future, prev=history)
+                    pred = ema.ema_model.sample(prev=history, num_samples=1)
             
                 cumm_epoch_valid_loss += loss.item()
 
-                y_pred.append(pred.squeeze().cpu())
-                y_true.append(x.cpu())
+                future_pred.append(pred.squeeze().cpu())
+                future_true.append(future.cpu())
         
-            y_pred = torch.cat(y_pred, dim=0) * stds[0] + means[0]
-            y_true = torch.cat(y_true, dim=0) * stds[0] + means[0]
+            future_pred = torch.cat(future_pred, dim=0) * stds[0] + means[0]
+            future_true = torch.cat(future_true, dim=0) * stds[0] + means[0]
 
             valid_loss = cumm_epoch_valid_loss / len(valid_loader)
             
-            metrics = metric(y_true, y_pred, loss=valid_loss, epoch=epoch)
+            metrics = metric(future_true, future_pred, loss=valid_loss, epoch=epoch)
 
             logging.info(f"Epoch {metrics['epoch'] + 1:04d} \t Valid Loss {metrics['loss']:.4f} \t Valid MAE {metrics['mae']:.4f} \t Valid RMSE {metrics['rmse']:.4f} \t Valid MAPE {metrics['mape']:.4f} \t Valid CRPS {metrics['crps']:.4f}")
 
@@ -148,26 +148,26 @@ def main(cfg):
             if metric.check_early_stop(epoch): break
 
 
-    y_pred = []
-    y_true = []
-    prev_true = []
+    future_pred = []
+    future_true = []
+    history_true = []
 
     ema.eval()
-    for prev, y in tqdm(test_loader, desc="Test", colour="blue"):
-        prev = prev.permute(0, 3, 1, 2).to(cfg.device)
-        y = y.permute(0, 2, 1).to(cfg.device)
-        pred = ema.ema_model.sample(prev=prev, num_samples=cfg.num_samples)
-        y_pred.append(pred.cpu())
-        y_true.append(y.cpu())
-        prev_true.append(prev[..., 0].cpu())
+    for history, future in tqdm(test_loader, desc="Test", colour="blue"):
+        history = history.permute(0, 3, 1, 2).to(cfg.device)
+        future = future.permute(0, 2, 1).to(cfg.device)
+        pred = ema.ema_model.sample(prev=history, num_samples=cfg.num_samples)
+        future_pred.append(pred.cpu())
+        future_true.append(future.cpu())
+        history_true.append(history[..., 0].cpu())
 
 
-    y_pred = torch.cat(y_pred, dim=0) * stds[0] + means[0]
-    y_true = torch.cat(y_true, dim=0) * stds[0] + means[0]
-    prev_true = torch.cat(prev_true, dim=0) * stds[0] + means[0]
-    y_pred_median = torch.median(y_pred, dim=1)[0]
+    future_pred = torch.cat(future_pred, dim=0) * stds[0] + means[0]
+    future_true = torch.cat(future_true, dim=0) * stds[0] + means[0]
+    history_true = torch.cat(history_true, dim=0) * stds[0] + means[0]
+    future_pred_median = torch.median(future_pred, dim=1)[0]
 
-    metrics = metric(y_true, y_pred_median, y_pred, valid=False)
+    metrics = metric(future_true, future_pred_median, future_pred, valid=False)
 
     logging.info(f"Time Step {cfg.time_step}")
 
@@ -179,13 +179,13 @@ def main(cfg):
 
     rows = 4
     cols = 4
-    q = torch.tensor([0.1, 0.25, 0.75, 0.9])
+    q = torch.tensor([0.05, 0.25, 0.75, 0.95])
     fig, axs = plt.subplots(rows, cols, figsize=(24, 24))
     axx = axs.ravel()
 
-    true_sample = torch.cat((prev_true[0, :, :16], y_true[0, :, :16]), dim=0).numpy()
-    pred_sample = y_pred_median[0, :, :16].numpy()
-    quantile = torch.quantile(y_pred[0, :, :, :16], q, dim=0).numpy()
+    true_sample = torch.cat((history_true[0, :, :16], future_true[0, :, :16]), dim=0).numpy()
+    pred_sample = future_pred_median[0, :, :16].numpy()
+    quantile = torch.quantile(future_pred[0, :, :, :16], q, dim=0).numpy()
 
 
     for dim in range(rows * cols):
