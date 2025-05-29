@@ -1,6 +1,6 @@
-# LightSTD
+# LightSTD: Simplifying Diffusion Models for Efficient Probabilistic Spatio-Temporal Graph Forecasting
 
-This repository contains the Pytorch implementation code for the paper "LightSTD"
+This repository contains the Pytorch implementation code for the paper "LightSTD: Simplifying Diffusion Models for Efficient Probabilistic Spatio-Temporal Graph Forecasting"
 
 ## Architectures
 
